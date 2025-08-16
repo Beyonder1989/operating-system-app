@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สำรวจระบบปฏิบัติการและการประมวลผลข้อมูล</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: The application is designed as a thematic, single-page dashboard with a fixed top navigation bar for direct access to four core concepts: Software, Operating Systems, Databases, and Data Processing. This non-linear structure prioritizes user-driven exploration over the linear format of the source report. Key interactions include toggles to switch between related concepts (e.g., System vs. Application Software), interactive diagrams (Data Hierarchy), and clickable timelines (Windows Evolution), designed to make abstract information more tangible and engaging for learners. -->
+    <!-- Visualization & Content Choices: 
+        - Software Layers: Report Info -> Relationship between Hardware, System, and Application software. Goal -> Inform. Viz -> Donut Chart. Interaction -> Hover tooltips. Justification -> Clearly visualizes the layered architecture. Library -> Chart.js.
+        - Windows Market Share: Report Info -> Windows' >90% market share. Goal -> Compare/Inform. Viz -> Horizontal Bar Chart. Interaction -> Hover tooltips. Justification -> Provides immediate visual impact of the market dominance statistic. Library -> Chart.js.
+        - Windows Evolution: Report Info -> Table of Windows versions. Goal -> Show Change. Viz -> Interactive Timeline (HTML/CSS/JS). Interaction -> Click to reveal details. Justification -> Transforms a static table into an engaging, explorable historical narrative. Method -> Custom JS.
+        - Data Hierarchy: Report Info -> Table of data hierarchy. Goal -> Organize. Viz -> Interactive Nested Diagram (HTML/CSS/JS). Interaction -> Hover to highlight and get info. Justification -> Makes the abstract concept of data structure concrete and easy to understand. Method -> Custom JS.
+        - Processing Cycle: Report Info -> Input, Processing, Output, Feedback steps. Goal -> Organize. Viz -> Interactive Flowchart (HTML/CSS/JS). Interaction -> Click to see details of each stage. Justification -> Visualizes a process more effectively than text. Method -> Custom JS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #1e293b; /* slate-800 */
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #0d9488; /* teal-600 */
+            border-bottom-color: #0d9488; /* teal-600 */
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 350px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .data-hierarchy-item {
+            border: 2px solid #e2e8f0; /* slate-200 */
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            margin: 0.5rem;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        .data-hierarchy-item:hover {
+            background-color: #f1f5f9; /* slate-100 */
+            border-color: #0d9488; /* teal-600 */
+        }
+        .timeline-item {
+            position: relative;
+            padding-left: 2.5rem;
+            padding-bottom: 2rem;
+            border-left: 2px solid #cbd5e1; /* slate-300 */
+        }
+        .timeline-dot {
+            position: absolute;
+            left: -0.5rem;
+            top: 0;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 9999px;
+            background-color: #fff;
+            border: 2px solid #0d9488; /* teal-600 */
+        }
+        .timeline-item.active .timeline-dot {
+            background-color: #0d9488; /* teal-600 */
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <h1 class="text-xl font-bold text-teal-700">🖥️ สำรวจระบบคอมพิวเตอร์</h1>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#software" class="nav-link px-3 py-2 rounded-md text-sm font-medium">ซอฟต์แวร์</a>
+                        <a href="#os" class="nav-link px-3 py-2 rounded-md text-sm font-medium">ระบบปฏิบัติการ</a>
+                        <a href="#database" class="nav-link px-3 py-2 rounded-md text-sm font-medium">ฐานข้อมูล</a>
+                        <a href="#processing" class="nav-link px-3 py-2 rounded-md text-sm font-medium">การประมวลผล</a>
+                    </div>
+                </div>
+                <div class="md:hidden">
+                    <select id="mobile-nav" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-teal-500 focus:border-teal-500 block w-full p-2.5">
+                        <option value="software">ซอฟต์แวร์</option>
+                        <option value="os">ระบบปฏิบัติการ</option>
+                        <option value="database">ฐานข้อมูล</option>
+                        <option value="processing">การประมวลผล</option>
+                    </select>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Section: Software -->
+        <section id="software" class="content-section">
+            <h2 class="text-3xl font-bold mb-2 text-slate-900">I. ซอฟต์แวร์: หัวใจสำคัญของการทำงานคอมพิวเตอร์</h2>
+            <p class="mb-6 text-slate-600">ซอฟต์แวร์คือชุดคำสั่งที่บอกให้คอมพิวเตอร์ทำงานตามที่เราต้องการ เปรียบเสมือนวิญญาณที่ควบคุมร่างกาย (ฮาร์ดแวร์) ทำให้คอมพิวเตอร์เครื่องเดียวสามารถทำงานได้หลากหลาย ส่วนนี้จะพาคุณไปสำรวจซอฟต์แวร์สองประเภทหลักและความสัมพันธ์ระหว่างกัน</p>
+            
+            <div class="grid md:grid-cols-2 gap-8 items-center">
+                <div>
+                    <div class="mb-4 border-b border-gray-200">
+                        <nav class="flex -mb-px" id="software-tabs">
+                            <button data-target="system-software" class="software-tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-teal-500 text-teal-600">ซอฟต์แวร์ระบบ</button>
+                            <button data-target="app-software" class="software-tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">ซอฟต์แวร์ประยุกต์</button>
+                        </nav>
+                    </div>
+                    <div id="system-software" class="software-tab-content">
+                        <h3 class="text-xl font-semibold mb-2">ซอฟต์แวร์ระบบ (System Software)</h3>
+                        <p class="mb-4">ทำหน้าที่เป็นตัวกลางจัดการทรัพยากรของเครื่องและประสานงานระหว่างฮาร์ดแวร์กับซอฟต์แวร์ประยุกต์ เป็นรากฐานที่ทำให้ทุกอย่างทำงานร่วมกันได้อย่างราบรื่น</p>
+                        <div class="space-y-3">
+                            <div class="p-4 bg-slate-50 rounded-lg"><strong>ระบบปฏิบัติการ (OS):</strong> ผู้จัดการหลักของคอมพิวเตอร์ เช่น Windows, macOS</div>
+                            <div class="p-4 bg-slate-50 rounded-lg"><strong>โปรแกรมยูทิลิตี:</strong> เครื่องมือช่วยจัดการระบบ เช่น โปรแกรมป้องกันไวรัส, Disk Defragmenter</div>
+                            <div class="p-4 bg-slate-50 rounded-lg"><strong>ดีไวซ์ไดรเวอร์:</strong> ตัวกลางให้ฮาร์ดแวร์คุยกับ OS ได้ เช่น ไดรเวอร์เครื่องพิมพ์</div>
+                            <div class="p-4 bg-slate-50 rounded-lg"><strong>ตัวแปลภาษา:</strong> แปลภาษาโปรแกรมเมอร์ให้เป็นภาษาเครื่องที่คอมพิวเตอร์เข้าใจ</div>
+                        </div>
+                    </div>
+                    <div id="app-software" class="software-tab-content hidden">
+                        <h3 class="text-xl font-semibold mb-2">ซอฟต์แวร์ประยุกต์ (Application Software)</h3>
+                        <p class="mb-4">โปรแกรมที่ผู้ใช้โต้ตอบโดยตรงเพื่อทำงานเฉพาะอย่าง เช่น ท่องเว็บ, พิมพ์งาน, หรือเล่นเกม</p>
+                         <div class="space-y-3">
+                            <div class="p-4 bg-slate-50 rounded-lg"><strong>ประยุกต์พื้นฐาน:</strong> โปรแกรมทั่วไป เช่น เว็บเบราว์เซอร์, โปรแกรมเอกสาร (Word)</div>
+                            <div class="p-4 bg-slate-50 rounded-lg"><strong>ประยุกต์เฉพาะงาน:</strong> โปรแกรมสำหรับสายอาชีพ เช่น โปรแกรมออกแบบกราฟิก, โปรแกรมตัดต่อวิดีโอ</div>
+                            <div class="p-4 bg-slate-50 rounded-lg"><strong>โอเพ่นซอร์ส:</strong> ซอฟต์แวร์ฟรีที่เปิดให้ทุกคนร่วมพัฒนาได้ เช่น Linux, Firefox</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card p-4">
+                    <h3 class="text-lg font-semibold text-center mb-2">ความสัมพันธ์ขององค์ประกอบ</h3>
+                    <div class="chart-container">
+                        <canvas id="softwareLayersChart"></canvas>
+                    </div>
+                    <p class="text-center text-sm text-slate-500 mt-2">แผนภูมินี้แสดงให้เห็นว่าซอฟต์แวร์ระบบเป็นสะพานเชื่อมระหว่างฮาร์ดแวร์และซอฟต์แวร์ประยุกต์ที่ผู้ใช้โต้ตอบด้วย</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: OS -->
+        <section id="os" class="content-section">
+            <h2 class="text-3xl font-bold mb-2 text-slate-900">II. สถาปัตยกรรมระบบปฏิบัติการ</h2>
+            <p class="mb-6 text-slate-600">ระบบปฏิบัติการ (OS) มีหลายประเภท ถูกออกแบบมาสำหรับสภาพแวดล้อมที่แตกต่างกัน ตั้งแต่อุปกรณ์พกพาขนาดเล็กไปจนถึงเซิร์ฟเวอร์ขนาดใหญ่ที่จัดการเครือข่ายทั้งหมด ส่วนนี้จะพาไปรู้จัก OS ประเภทต่างๆ และดูวิวัฒนาการของระบบปฏิบัติการที่ครองตลาดอย่าง Windows</p>
+            
+            <div class="grid md:grid-cols-3 gap-6 mb-8">
+                <div class="card p-6 text-center">
+                    <h3 class="text-xl font-semibold mb-2">📱 แบบฝังตัว (Embedded)</h3>
+                    <p>ติดตั้งถาวรในอุปกรณ์ขนาดเล็ก เช่น สมาร์ทโฟน (Android, iOS), สมาร์ททีวี, หรือระบบ GPS</p>
+                </div>
+                <div class="card p-6 text-center">
+                    <h3 class="text-xl font-semibold mb-2">🌐 แบบเครือข่าย (Network)</h3>
+                    <p>ติดตั้งบนเซิร์ฟเวอร์เพื่อควบคุมและจัดการคอมพิวเตอร์ในเครือข่าย เช่น Windows Server, Linux</p>
+                </div>
+                <div class="card p-6 text-center">
+                    <h3 class="text-xl font-semibold mb-2">💻 แบบสแตนอโลน (Stand-Alone)</h3>
+                    <p>ติดตั้งบนคอมพิวเตอร์ส่วนบุคคลและโน้ตบุ๊ก เป็น OS ที่เราคุ้นเคยที่สุด เช่น Windows 10/11, macOS</p>
+                </div>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-8 items-start">
+                <div class="card p-6">
+                    <h3 class="text-xl font-semibold mb-4">วิวัฒนาการของ Windows</h3>
+                    <p class="text-sm text-slate-500 mb-4">คลิกที่เวอร์ชันเพื่อดูรายละเอียด</p>
+                    <div id="windows-timeline"></div>
+                </div>
+                <div class="card p-6">
+                     <div id="windows-details" class="bg-slate-50 p-6 rounded-lg min-h-[200px]">
+                        <h4 class="font-bold text-lg mb-2" id="windows-detail-title">เลือกเวอร์ชันเพื่อดูข้อมูล</h4>
+                        <p id="windows-detail-text">ข้อมูลเกี่ยวกับเวอร์ชันที่เลือกจะแสดงที่นี่</p>
+                    </div>
+                    <div class="mt-6">
+                        <h3 class="text-xl font-semibold mb-2 text-center">ส่วนแบ่งตลาดของ Windows</h3>
+                        <div class="chart-container" style="max-width: 500px; height: 150px;">
+                            <canvas id="marketShareChart"></canvas>
+                        </div>
+                        <p class="text-center text-sm text-slate-500 mt-2">Windows ครองส่วนแบ่งตลาด OS สำหรับคอมพิวเตอร์ส่วนบุคคลมากกว่า 90% เนื่องจากมีโปรแกรมรองรับจำนวนมหาศาล</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Database -->
+        <section id="database" class="content-section">
+            <h2 class="text-3xl font-bold mb-2 text-slate-900">III. แนวคิดฐานข้อมูล: จัดการข้อมูลอย่างมีโครงสร้าง</h2>
+            <p class="mb-6 text-slate-600">ฐานข้อมูลคือการรวบรวมข้อมูลอย่างเป็นระบบเพื่อลดความซ้ำซ้อนและทำให้ข้อมูลน่าเชื่อถือ ลองนึกถึงห้องสมุดที่จัดเรียงหนังสือเป็นหมวดหมู่เพื่อให้ค้นหาง่าย ข้อมูลในคอมพิวเตอร์ก็ถูกจัดระเบียบในลักษณะเดียวกันผ่านลำดับชั้นของโครงสร้างข้อมูล</p>
+            
+            <div class="card p-6">
+                <h3 class="text-xl font-semibold text-center mb-4">ลำดับชั้นโครงสร้างข้อมูล</h3>
+                <p class="text-center text-sm text-slate-500 mb-6">วางเมาส์เหนือแต่ละชั้นเพื่อดูคำอธิบาย</p>
+                <div id="data-hierarchy" class="relative">
+                    <!-- Hierarchy will be generated by JS -->
+                </div>
+                <div id="hierarchy-tooltip" class="absolute hidden bg-slate-800 text-white text-sm rounded py-2 px-3 shadow-lg z-10"></div>
+            </div>
+        </section>
+
+        <!-- Section: Processing -->
+        <section id="processing" class="content-section">
+            <h2 class="text-3xl font-bold mb-2 text-slate-900">IV. การประมวลผลข้อมูล</h2>
+            <p class="mb-6 text-slate-600">การประมวลผลคือการเปลี่ยนข้อมูลดิบ (Data) ให้กลายเป็นสารสนเทศ (Information) ที่มีความหมายและนำไปใช้ประโยชน์ได้ กระบวนการนี้มีขั้นตอนและวิธีการที่แตกต่างกันไปตามความต้องการ</p>
+
+            <div class="card p-6 mb-8">
+                <h3 class="text-xl font-semibold text-center mb-4">วงจรการทำงานของระบบสารสนเทศ</h3>
+                <p class="text-center text-sm text-slate-500 mb-6">คลิกที่แต่ละขั้นตอนเพื่อดูรายละเอียดกิจกรรม</p>
+                <div class="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
+                    <div id="proc-input" class="proc-step text-center p-4 border-2 border-transparent rounded-lg cursor-pointer">
+                        <div class="text-5xl">📥</div>
+                        <div class="font-semibold mt-2">1. นำเข้า (Input)</div>
+                    </div>
+                    <div class="text-2xl text-slate-400">➡️</div>
+                    <div id="proc-process" class="proc-step text-center p-4 border-2 border-transparent rounded-lg cursor-pointer">
+                        <div class="text-5xl">⚙️</div>
+                        <div class="font-semibold mt-2">2. ประมวลผล (Processing)</div>
+                    </div>
+                    <div class="text-2xl text-slate-400">➡️</div>
+                    <div id="proc-output" class="proc-step text-center p-4 border-2 border-transparent rounded-lg cursor-pointer">
+                        <div class="text-5xl">📤</div>
+                        <div class="font-semibold mt-2">3. ส่งออก (Output)</div>
+                    </div>
+                </div>
+                <div class="relative flex justify-center items-center mt-2">
+                    <div class="text-2xl text-slate-400 transform -rotate-90">↪️</div>
+                    <div id="proc-feedback" class="proc-step text-center p-4 border-2 border-transparent rounded-lg cursor-pointer">
+                        <div class="font-semibold">4. ผลป้อนกลับ (Feedback)</div>
+                    </div>
+                </div>
+                <div id="processing-details" class="mt-6 bg-slate-50 p-6 rounded-lg min-h-[150px]">
+                    <h4 class="font-bold text-lg mb-2" id="proc-detail-title">เลือกขั้นตอนเพื่อดูข้อมูล</h4>
+                    <p id="proc-detail-text">รายละเอียดของกิจกรรมในขั้นตอนที่เลือกจะแสดงที่นี่</p>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="card p-6">
+                    <h3 class="text-xl font-semibold mb-2">การประมวลผลแบบเชื่อมตรง (Online)</h3>
+                    <p class="mb-4">ประมวลผลทันทีที่ได้รับข้อมูล เหมาะสำหรับงานที่ต้องการการตอบสนองแบบเรียลไทม์</p>
+                    <ul class="list-disc list-inside space-y-2 text-slate-700">
+                        <li>การฝาก-ถอนเงินผ่าน ATM</li>
+                        <li>การจองตั๋วเครื่องบินออนไลน์</li>
+                        <li>การซื้อสินค้าในห้างสรรพสินค้า</li>
+                    </ul>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-xl font-semibold mb-2">การประมวลผลแบบกลุ่ม (Batch)</h3>
+                    <p class="mb-4">รวบรวมข้อมูลไว้จำนวนหนึ่งก่อน แล้วจึงประมวลผลพร้อมกันทีเดียว เหมาะกับงานที่ไม่เร่งด่วนและมีข้อมูลปริมาณมาก</p>
+                    <ul class="list-disc list-inside space-y-2 text-slate-700">
+                        <li>การคำนวณเงินเดือนพนักงานตอนสิ้นเดือน</li>
+                        <li>การทำรายงานสรุปยอดขายรายวัน</li>
+                        <li>การประมวลผลผลสำรวจความคิดเห็น (โพล)</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sections = document.querySelectorAll('.content-section');
+            const navLinks = document.querySelectorAll('.nav-link');
+            const mobileNav = document.getElementById('mobile-nav');
+
+            function navigateTo(hash) {
+                if (!hash) hash = '#software';
+                
+                sections.forEach(section => {
+                    if ('#' + section.id === hash) {
+                        section.classList.add('active');
+                    } else {
+                        section.classList.remove('active');
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    if (link.getAttribute('href') === hash) {
+                        link.classList.add('active');
+                    } else {
+                        link.classList.remove('active');
+                    }
+                });
+                
+                const optionValue = hash.substring(1);
+                if (mobileNav.value !== optionValue) {
+                    mobileNav.value = optionValue;
+                }
+            }
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const hash = this.getAttribute('href');
+                    history.pushState(null, null, hash);
+                    navigateTo(hash);
+                });
+            });
+
+            mobileNav.addEventListener('change', function() {
+                const hash = '#' + this.value;
+                history.pushState(null, null, hash);
+                navigateTo(hash);
+            });
+            
+            window.addEventListener('popstate', () => {
+                navigateTo(location.hash);
+            });
+
+            navigateTo(location.hash || '#software');
+
+            // Software Section Logic
+            const softwareTabs = document.getElementById('software-tabs');
+            const softwareTabContents = document.querySelectorAll('.software-tab-content');
+            softwareTabs.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    const targetId = e.target.dataset.target;
+                    
+                    softwareTabs.querySelectorAll('button').forEach(btn => {
+                        btn.classList.remove('border-teal-500', 'text-teal-600');
+                        btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                    });
+                    
+                    e.target.classList.add('border-teal-500', 'text-teal-600');
+                    e.target.classList.remove('border-transparent', 'text-gray-500');
+
+                    softwareTabContents.forEach(content => {
+                        if (content.id === targetId) {
+                            content.classList.remove('hidden');
+                        } else {
+                            content.classList.add('hidden');
+                        }
+                    });
+                }
+            });
+
+            // Software Layers Chart
+            const softwareLayersCtx = document.getElementById('softwareLayersChart').getContext('2d');
+            new Chart(softwareLayersCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['ฮาร์ดแวร์', 'ซอฟต์แวร์ระบบ', 'ซอฟต์แวร์ประยุกต์', 'ผู้ใช้'],
+                    datasets: [{
+                        label: 'ความสัมพันธ์ขององค์ประกอบ',
+                        data: [25, 25, 25, 25],
+                        backgroundColor: ['#94a3b8', '#38bdf8', '#34d399', '#f87171'],
+                        borderColor: '#f8fafc',
+                        borderWidth: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    if (label === 'ฮาร์ดแวร์') return ' ส่วนประกอบทางกายภาพ';
+                                    if (label === 'ซอฟต์แวร์ระบบ') return ' จัดการฮาร์ดแวร์';
+                                    if (label === 'ซอฟต์แวร์ประยุกต์') return ' โปรแกรมที่ผู้ใช้ใช้งาน';
+                                    if (label === 'ผู้ใช้') return ' ผู้ที่โต้ตอบกับระบบ';
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // OS Section Logic
+            const windowsTimelineData = [
+                { version: 'Windows 95', desc: 'ระบบปฏิบัติการแบบสแตนอโลนที่นำเสนอ Start Menu และ Taskbar เป็นครั้งแรก' },
+                { version: 'Windows 98', desc: 'พัฒต่อจาก Windows 95 ปรับปรุงการรองรับ USB และประสิทธิภาพโดยรวม' },
+                { version: 'Windows XP', desc: 'พัฒนาจาก Windows 2000 มีความเสถียรสูงและหน้าตาที่สวยงาม เป็นที่นิยมอย่างมาก' },
+                { version: 'Windows Vista', desc: 'ปรับปรุงด้านความปลอดภัยและมีหน้าตาแบบ Aero Glass แต่ใช้ทรัพยากรสูง' },
+                { version: 'Windows 7', desc: 'ปรับปรุงจาก Vista ให้เร็วขึ้น เสถียรขึ้น และรองรับ Multi-touch' },
+            ];
+
+            const timelineContainer = document.getElementById('windows-timeline');
+            const detailTitle = document.getElementById('windows-detail-title');
+            const detailText = document.getElementById('windows-detail-text');
+
+            windowsTimelineData.forEach((item, index) => {
+                const timelineItem = document.createElement('div');
+                timelineItem.className = 'timeline-item cursor-pointer';
+                timelineItem.innerHTML = `<div class="timeline-dot"></div><div class="font-semibold">${item.version}</div>`;
+                timelineItem.addEventListener('click', () => {
+                    detailTitle.textContent = item.version;
+                    detailText.textContent = item.desc;
+                    document.querySelectorAll('.timeline-item').forEach(el => el.classList.remove('active'));
+                    timelineItem.classList.add('active');
+                });
+                timelineContainer.appendChild(timelineItem);
+            });
+            
+            // Trigger first item
+            if (timelineContainer.firstChild) {
+                timelineContainer.firstChild.click();
+            }
+
+            // Market Share Chart
+            const marketShareCtx = document.getElementById('marketShareChart').getContext('2d');
+            new Chart(marketShareCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['ส่วนแบ่งตลาด'],
+                    datasets: [
+                        {
+                            label: 'Windows',
+                            data: [90],
+                            backgroundColor: '#34d399',
+                            borderColor: '#10b981',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'อื่นๆ (macOS, Linux, etc.)',
+                            data: [10],
+                            backgroundColor: '#e5e7eb',
+                            borderColor: '#d1d5db',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            stacked: true,
+                            ticks: {
+                                callback: function(value) { return value + "%" }
+                            },
+                            grid: { display: false }
+                        },
+                        y: {
+                            stacked: true,
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Database Section Logic
+            const hierarchyData = [
+                { name: 'บิต (Bit)', desc: 'หน่วยที่เล็กที่สุด (0 หรือ 1)' },
+                { name: 'ไบต์ (Byte)', desc: 'กลุ่มของบิต (มักจะ 8) แทน 1 อักขระ' },
+                { name: 'เขตข้อมูล (Field)', desc: 'กลุ่มของไบต์ แทนคุณลักษณะ เช่น "ชื่อ"' },
+                { name: 'ระเบียน (Record)', desc: 'กลุ่มของเขตข้อมูลที่เกี่ยวข้องกัน เช่น ข้อมูลนักเรียน 1 คน' },
+                { name: 'แฟ้ม (File)', desc: 'กลุ่มของระเบียนประเภทเดียวกัน' },
+                { name: 'ฐานข้อมูล (Database)', desc: 'กลุ่มของแฟ้มที่สัมพันธ์กัน' },
+            ];
+            const hierarchyContainer = document.getElementById('data-hierarchy');
+            const tooltip = document.getElementById('hierarchy-tooltip');
+            let parent = hierarchyContainer;
+
+            hierarchyData.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'data-hierarchy-item';
+                div.style.padding = `${1.5 + index * 0.5}rem`;
+                div.innerHTML = `<strong class="text-lg">${item.name}</strong>`;
+                
+                div.addEventListener('mousemove', (e) => {
+                    tooltip.style.left = `${e.pageX + 15}px`;
+                    tooltip.style.top = `${e.pageY + 15}px`;
+                });
+                div.addEventListener('mouseenter', () => {
+                    tooltip.textContent = item.desc;
+                    tooltip.classList.remove('hidden');
+                });
+                div.addEventListener('mouseleave', () => {
+                    tooltip.classList.add('hidden');
+                });
+
+                parent.appendChild(div);
+                parent = div;
+            });
+            
+            // Processing Section Logic
+            const procSteps = document.querySelectorAll('.proc-step');
+            const procDetailTitle = document.getElementById('proc-detail-title');
+            const procDetailText = document.getElementById('proc-detail-text');
+            const procData = {
+                'proc-input': { title: 'การนำเข้า (Input)', text: 'การรวบรวมข้อมูลดิบจากแหล่งต่างๆ เช่น การกรอกฟอร์ม, การสแกนบาร์โค้ด, หรือการรับข้อมูลจากเซ็นเซอร์' },
+                'proc-process': { title: 'การประมวลผล (Processing)', text: 'การแปลงข้อมูลดิบให้มีประโยชน์ผ่านกิจกรรมต่างๆ เช่น การคำนวณ, การเรียงลำดับ, การจัดกลุ่ม, และการสรุปผล' },
+                'proc-output': { title: 'การส่งออก (Output)', text: 'การนำเสนอสารสนเทศที่ผ่านการประมวลผลแล้วในรูปแบบที่เข้าใจง่าย เช่น รายงาน, กราฟ, หรือการแสดงผลบนหน้าจอ' },
+                'proc-feedback': { title: 'ผลป้อนกลับ (Feedback)', text: 'ผลลัพธ์ที่ถูกนำกลับมาใช้เพื่อปรับปรุงกระบวนการนำเข้าหรือประมวลผลให้ดียิ่งขึ้น เช่น การแจ้งเตือนข้อผิดพลาด' },
+            };
+
+            procSteps.forEach(step => {
+                step.addEventListener('click', () => {
+                    const data = procData[step.id];
+                    procDetailTitle.textContent = data.title;
+                    procDetailText.textContent = data.text;
+                    procSteps.forEach(s => s.classList.remove('bg-teal-100', 'border-teal-500'));
+                    step.classList.add('bg-teal-100', 'border-teal-500');
+                });
+            });
+            procSteps[0].click();
+
+        });
+    </script>
+</body>
+</html>
